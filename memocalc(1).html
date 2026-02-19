@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<title>MemoCalc</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --border: #e8e8e4;
+    --text: #1a1a1a;
+    --text-muted: #888880;
+    --radius: 16px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overscroll-behavior: none;
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; flex-direction: column; height: 100vh; }
+  .view.active { display: flex; }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .header-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .btn-back {
+    background: none; border: none; cursor: pointer;
+    font-size: 22px; color: var(--text); padding: 4px 8px 4px 0;
+    display: flex; align-items: center; gap: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 500;
+  }
+  .color-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── LIST VIEW (main) ── */
+  #view-lists .header-title { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .header-icon { font-size: 24px; cursor: pointer; }
+
+  .lists-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+  .list-item {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--surface);
+    transition: background 0.15s;
+    position: relative;
+  }
+  .list-item:active { background: #f0f0ee; }
+  .list-item-name {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .list-item-date { font-size: 13px; color: var(--text-muted); }
+  .list-item-delete {
+    position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    background: #ff4757; border: none; border-radius: 8px;
+    color: white; font-size: 13px; padding: 6px 12px;
+    cursor: pointer; display: none;
+    font-family: 'DM Sans', sans-serif; font-weight: 600;
+  }
+  .list-item.deleting .list-item-delete { display: block; }
+
+  .fab {
+    position: fixed; bottom: 28px; right: 24px;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: #00b4d8; border: none; cursor: pointer;
+    font-size: 28px; color: white;
+    box-shadow: var(--shadow-lg);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 100;
+  }
+  .fab:active { transform: scale(0.92); }
+
+  /* ── DETAIL VIEW ── */
+  .detail-header { background: var(--surface); }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: 1fr 40px 120px;
+    padding: 10px 20px;
+    border-bottom: 2px solid var(--border);
+    background: #fafaf8;
+  }
+  .table-header span {
+    font-size: 12px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.8px;
+  }
+  .table-header span:last-child { text-align: right; }
+
+  .rows-scroll { flex: 1; overflow-y: auto; background: var(--surface); }
+
+  .row-item {
+    display: grid;
+    grid-template-columns: 1fr 40px 120px;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .row-item:active { background: #f9f9f7; }
+
+  .row-memo {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .row-sign {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 300;
+    cursor: pointer; background: none;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .row-sign.plus { color: inherit; }
+  .row-sign.minus { color: inherit; }
+
+  .row-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px; font-weight: 500;
+    text-align: right;
+    cursor: pointer;
+  }
+
+  .total-bar {
+    display: grid;
+    grid-template-columns: 1fr 40px 120px;
+    align-items: center;
+    padding: 20px 20px 32px;
+    color: white;
+    flex-shrink: 0;
+  }
+  .total-label { font-size: 18px; font-weight: 700; }
+  .total-eq { font-size: 20px; text-align: center; opacity: 0.8; }
+  .total-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px; font-weight: 700;
+    text-align: right;
+  }
+
+  .add-row-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none; background: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+  }
+  .add-row-btn:active { background: #f5f5f3; }
+
+  /* ── MODALS ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none; align-items: flex-end; justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 480px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+  .modal input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 16px;
+    font-family: 'DM Sans', sans-serif;
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    background: var(--bg);
+  }
+  .modal input:focus { border-color: #00b4d8; }
+
+  .color-picker {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .color-swatch {
+    width: 36px; height: 36px; border-radius: 50%;
+    cursor: pointer; border: 3px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .color-swatch.selected { border-color: var(--text); transform: scale(1.1); }
+
+  .btn-primary {
+    width: 100%; padding: 15px;
+    border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer; color: white;
+    background: #00b4d8;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:active { opacity: 0.85; }
+
+  .sign-toggle {
+    display: flex; gap: 10px; margin-bottom: 12px;
+  }
+  .sign-btn {
+    flex: 1; padding: 12px;
+    border-radius: 12px; border: 2px solid var(--border);
+    font-size: 20px; cursor: pointer; background: none;
+    transition: all 0.15s;
+  }
+  .sign-btn.active { color: white; border-color: transparent; }
+  .sign-btn.active.plus-active { background: #2ecc71; }
+  .sign-btn.active.minus-active { background: #e74c3c; }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; padding: 40px;
+    color: var(--text-muted);
+  }
+  .empty-icon { font-size: 48px; opacity: 0.4; }
+  .empty-text { font-size: 16px; font-weight: 500; text-align: center; }
+
+  /* ── EXPORT MENU ── */
+  .menu-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none; z-index: 150;
+  }
+  .menu-overlay.open { display: block; }
+  .menu-panel {
+    position: fixed; top: 60px; right: 16px;
+    background: white; border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden; display: none; z-index: 151;
+    min-width: 180px;
+  }
+  .menu-panel.open { display: block; }
+  .menu-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; border: none; background: none;
+    font-family: 'DM Sans', sans-serif; font-size: 15px;
+    cursor: pointer; width: 100%; text-align: left;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .menu-btn:last-child { border-bottom: none; }
+  .menu-btn:active { background: var(--bg); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     VIEW 1: LISTA DE LISTE
+══════════════════════════════════════════ -->
+<div id="view-lists" class="view active">
+  <div class="header">
+    <div class="header-title">MemoCalc</div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <span class="header-icon" onclick="openMenu()" title="Menu">⋯</span>
+    </div>
+  </div>
+  <div class="lists-scroll" id="lists-container">
+    <div class="empty" id="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">Nicio listă încă.<br>Apasă + pentru a crea una.</div>
+    </div>
+  </div>
+  <button class="fab" onclick="openNewListModal()">+</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     VIEW 2: DETALIU LISTĂ
+══════════════════════════════════════════ -->
+<div id="view-detail" class="view">
+  <div class="header detail-header">
+    <button class="btn-back" onclick="goBack()">‹ Înapoi</button>
+    <div class="header-title" id="detail-title" style="color:#000"></div>
+    <div class="color-dot" id="detail-dot"></div>
+  </div>
+  <div class="table-header">
+    <span>memo</span>
+    <span></span>
+    <span>number</span>
+  </div>
+  <div class="rows-scroll" id="rows-container"></div>
+  <div class="total-bar" id="total-bar">
+    <span class="total-label">Total</span>
+    <span class="total-eq">=</span>
+    <span class="total-value" id="total-value">0</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: LISTA NOUĂ
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-new-list" onclick="closeModal('modal-new-list',event)">
+  <div class="modal">
+    <h3>Listă nouă</h3>
+    <input type="text" id="new-list-name" placeholder="Numele listei..." maxlength="40">
+    <div class="color-picker" id="color-picker"></div>
+    <button class="btn-primary" onclick="saveNewList()">Creează</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: RÂD NOU / EDITARE RÂD
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-row" onclick="closeModal('modal-row',event)">
+  <div class="modal">
+    <h3 id="modal-row-title">Rând nou</h3>
+    <input type="text" id="row-memo" placeholder="Descriere (ex: 04 oct 2023)..." maxlength="40">
+    <div class="sign-toggle">
+      <button class="sign-btn active plus-active" id="sign-plus" onclick="setSign('+')">+</button>
+      <button class="sign-btn" id="sign-minus" onclick="setSign('-')">−</button>
+    </div>
+    <input type="number" id="row-number" placeholder="Sumă..." inputmode="decimal">
+    <button class="btn-primary" id="modal-row-save" onclick="saveRow()">Adaugă</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MENU EXPORT
+══════════════════════════════════════════ -->
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenu()"></div>
+<div class="menu-panel" id="menu-panel">
+  <button class="menu-btn" onclick="exportData()">📤 Export JSON</button>
+  <button class="menu-btn" onclick="importData()">📥 Import JSON</button>
+  <input type="file" id="import-input" accept=".json" style="display:none" onchange="handleImport(event)">
+</div>
+
+<script>
+// ── COLORS ──
+const COLORS = ['#F5C518','#2ecc71','#9b59b6','#e67e22','#00b4d8','#e74c3c','#1abc9c','#3498db'];
+
+// ── STATE ──
+let lists = [];
+let currentListId = null;
+let editingRowId = null;
+let selectedSign = '+';
+let selectedColor = COLORS[0];
+
+// ── STORAGE ──
+function save() {
+  localStorage.setItem('memocalc_data', JSON.stringify(lists));
+}
+function load() {
+  const d = localStorage.getItem('memocalc_data');
+  if (d) lists = JSON.parse(d);
+}
+
+// ── INIT ──
+load();
+renderLists();
+initColorPicker();
+registerSW();
+
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  const sw = `
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open('memocalc-v1').then(c => c.addAll(['/'])));
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});
+  `;
+  const blob = new Blob([sw], {type:'text/javascript'});
+  const url = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url).catch(()=>{});
+}
+
+// ── COLOR PICKER ──
+function initColorPicker() {
+  const cp = document.getElementById('color-picker');
+  COLORS.forEach((c, i) => {
+    const s = document.createElement('div');
+    s.className = 'color-swatch' + (i===0?' selected':'');
+    s.style.background = c;
+    s.onclick = () => {
+      document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('selected'));
+      s.classList.add('selected');
+      selectedColor = c;
+    };
+    cp.appendChild(s);
+  });
+}
+
+// ── LISTS VIEW ──
+function renderLists() {
+  const container = document.getElementById('lists-container');
+  const empty = document.getElementById('empty-state');
+  container.innerHTML = '';
+  if (lists.length === 0) {
+    container.appendChild(empty);
+    empty.style.display = 'flex';
+    return;
+  }
+  lists.forEach(list => {
+    const el = document.createElement('div');
+    el.className = 'list-item';
+    el.innerHTML = `
+      <div class="list-item-name" style="color:${list.color}">${esc(list.name)}</div>
+      <div class="list-item-date">${formatDate(list.updatedAt)}</div>
+      <button class="list-item-delete" onclick="deleteList(event,'${list.id}')">Șterge</button>
+    `;
+    el.onclick = () => openList(list.id);
+    el.onlongpress = () => {};
+    // Long press to show delete
+    let pressTimer;
+    el.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => {
+        document.querySelectorAll('.list-item').forEach(x=>x.classList.remove('deleting'));
+        el.classList.add('deleting');
+      }, 600);
+    });
+    el.addEventListener('touchend', () => clearTimeout(pressTimer));
+    el.addEventListener('touchmove', () => clearTimeout(pressTimer));
+    container.appendChild(el);
+  });
+}
+
+function deleteList(e, id) {
+  e.stopPropagation();
+  if (!confirm('Ștergi lista?')) return;
+  lists = lists.filter(l => l.id !== id);
+  save();
+  renderLists();
+}
+
+// ── NEW LIST MODAL ──
+function openNewListModal() {
+  selectedColor = COLORS[0];
+  document.querySelectorAll('.color-swatch').forEach((s,i)=>{
+    s.classList.toggle('selected', i===0);
+  });
+  document.getElementById('new-list-name').value = '';
+  document.getElementById('modal-new-list').classList.add('open');
+  setTimeout(()=>document.getElementById('new-list-name').focus(), 300);
+}
+
+function saveNewList() {
+  const name = document.getElementById('new-list-name').value.trim();
+  if (!name) { alert('Introdu un nume.'); return; }
+  const list = {
+    id: uid(),
+    name,
+    color: selectedColor,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    rows: []
+  };
+  lists.unshift(list);
+  save();
+  renderLists();
+  document.getElementById('modal-new-list').classList.remove('open');
+  openList(list.id);
+}
+
+// ── DETAIL VIEW ──
+function openList(id) {
+  currentListId = id;
+  const list = getList(id);
+  document.getElementById('detail-title').textContent = list.name;
+  document.getElementById('detail-title').style.color = list.color;
+  document.getElementById('detail-dot').style.background = list.color;
+  document.getElementById('total-bar').style.background = list.color;
+  renderRows();
+  showView('view-detail');
+}
+
+function renderRows() {
+  const list = getList(currentListId);
+  const container = document.getElementById('rows-container');
+  container.innerHTML = '';
+
+  if (list.rows.length === 0) {
+    const em = document.createElement('div');
+    em.className = 'empty';
+    em.innerHTML = '<div class="empty-icon">✏️</div><div class="empty-text">Adaugă primul rând</div>';
+    container.appendChild(em);
+  }
+
+  list.rows.forEach(row => {
+    const el = document.createElement('div');
+    el.className = 'row-item';
+    el.innerHTML = `
+      <div class="row-memo" onclick="editRow('${row.id}')">${esc(row.memo)||'—'}</div>
+      <button class="row-sign ${row.sign==='+'?'plus':'minus'}" 
+        style="color:${list.color};border-color:${list.color}"
+        onclick="toggleSign('${row.id}')">
+        ${row.sign==='+' ? '+' : '−'}
+      </button>
+      <div class="row-number" onclick="editRow('${row.id}')" style="color:${list.color}">
+        ${formatNum(row.number)}
+      </div>
+    `;
+    container.appendChild(el);
+  });
+
+  // Add row button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-row-btn';
+  addBtn.innerHTML = `<span style="color:${list.color};font-size:20px;font-weight:700">+</span> Adaugă rând`;
+  addBtn.onclick = openNewRowModal;
+  container.appendChild(addBtn);
+
+  updateTotal();
+}
+
+function toggleSign(rowId) {
+  const list = getList(currentListId);
+  const row = list.rows.find(r => r.id === rowId);
+  if (!row) return;
+  row.sign = row.sign === '+' ? '-' : '+';
+  list.updatedAt = Date.now();
+  save();
+  renderRows();
+}
+
+function updateTotal() {
+  const list = getList(currentListId);
+  const total = list.rows.reduce((sum, r) => sum + (r.sign === '+' ? r.number : -r.number), 0);
+  document.getElementById('total-value').textContent = formatNum(total);
+}
+
+// ── ROW MODAL ──
+function openNewRowModal() {
+  editingRowId = null;
+  selectedSign = '+';
+  document.getElementById('modal-row-title').textContent = 'Rând nou';
+  document.getElementById('modal-row-save').textContent = 'Adaugă';
+  document.getElementById('row-memo').value = '';
+  document.getElementById('row-number').value = '';
+  setSign('+');
+  document.getElementById('modal-row').classList.add('open');
+  setTimeout(()=>document.getElementById('row-memo').focus(), 300);
+}
+
+function editRow(rowId) {
+  const list = getList(currentListId);
+  const row = list.rows.find(r => r.id === rowId);
+  if (!row) return;
+  editingRowId = rowId;
+  selectedSign = row.sign;
+  document.getElementById('modal-row-title').textContent = 'Editează';
+  document.getElementById('modal-row-save').textContent = 'Salvează';
+  document.getElementById('row-memo').value = row.memo;
+  document.getElementById('row-number').value = row.number;
+  setSign(row.sign);
+  document.getElementById('modal-row').classList.add('open');
+}
+
+function setSign(s) {
+  selectedSign = s === '+' ? '+' : '-';
+  document.getElementById('sign-plus').className = 'sign-btn' + (s==='+'?' active plus-active':'');
+  document.getElementById('sign-minus').className = 'sign-btn' + (s!=='+'?' active minus-active':'');
+}
+
+function saveRow() {
+  const memo = document.getElementById('row-memo').value.trim();
+  const numRaw = document.getElementById('row-number').value;
+  const number = parseFloat(numRaw);
+  if (isNaN(number) || numRaw === '') { alert('Introdu o sumă validă.'); return; }
+
+  const list = getList(currentListId);
+  if (editingRowId) {
+    const row = list.rows.find(r => r.id === editingRowId);
+    if (row) { row.memo = memo; row.sign = selectedSign; row.number = number; }
+  } else {
+    list.rows.push({ id: uid(), memo, sign: selectedSign, number });
+  }
+  list.updatedAt = Date.now();
+  save();
+  renderRows();
+  // Update list date in list view
+  document.getElementById('modal-row').classList.remove('open');
+  editingRowId = null;
+}
+
+// ── NAVIGATION ──
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goBack() {
+  renderLists();
+  showView('view-lists');
+  currentListId = null;
+}
+
+// ── MENU ──
+function openMenu() {
+  document.getElementById('menu-overlay').classList.add('open');
+  document.getElementById('menu-panel').classList.add('open');
+}
+function closeMenu() {
+  document.getElementById('menu-overlay').classList.remove('open');
+  document.getElementById('menu-panel').classList.remove('open');
+}
+
+// ── EXPORT / IMPORT ──
+function exportData() {
+  closeMenu();
+  const json = JSON.stringify(lists, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'memocalc_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+function importData() {
+  closeMenu();
+  document.getElementById('import-input').click();
+}
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      if (confirm('Înlocuiești toate datele cu backup-ul importat?')) {
+        lists = data;
+        save();
+        renderLists();
+        alert('Import reușit!');
+      }
+    } catch { alert('Fișier invalid.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ── MODAL CLOSE ──
+function closeModal(id, e) {
+  if (e.target.id === id) document.getElementById(id).classList.remove('open');
+}
+
+// ── HELPERS ──
+function getList(id) { return lists.find(l => l.id === id); }
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function formatNum(n) {
+  return Number(n).toLocaleString('ro-RO', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+function formatDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('ro-RO') + ', ' + d.toLocaleTimeString('ro-RO', {hour:'2-digit',minute:'2-digit'});
+}
+
+// ── KEYBOARD: Enter submit ──
+document.getElementById('new-list-name').addEventListener('keydown', e => { if(e.key==='Enter') saveNewList(); });
+document.getElementById('row-number').addEventListener('keydown', e => { if(e.key==='Enter') saveRow(); });
+</script>
+
+<!-- PWA Manifest inline -->
+<script>
+const manifest = {
+  name: 'MemoCalc',
+  short_name: 'MemoCalc',
+  start_url: '.',
+  display: 'standalone',
+  background_color: '#f7f7f5',
+  theme_color: '#1a1a2e',
+  icons: [{
+    src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%231a1a2e"/><text y=".9em" font-size="75" x="12">🧮</text></svg>',
+    sizes: '192x192', type: 'image/svg+xml'
+  }]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+const link = document.createElement('link');
+link.rel = 'manifest';
+link.href = URL.createObjectURL(blob);
+document.head.appendChild(link);
+</script>
+</body>
+</html>
